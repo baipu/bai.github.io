@@ -1,3 +1,5 @@
+{{jekyll.environment == "production" }}
+{{page.comments != false}}
 {% if page.comments != false and jekyll.environment == "production" %}
   <div id="disqus_thread"></div>
   <script>
