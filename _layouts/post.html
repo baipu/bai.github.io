@@ -1,6 +1,7 @@
 ---
 layout: default
 ---
+
 <article class="post" itemscope itemtype="http://schema.org/BlogPosting">
 
   <header class="post-header">
@@ -14,13 +15,9 @@ layout: default
         • <span itemprop="author" itemscope itemtype="http://schema.org/Person"><span itemprop="name">{{ page.author }}</span></span>
       {% endif %}</p>
   </header>
-  ===============================================
   <div class="post-content" itemprop="articleBody">
     {{ content }}
   </div>
-  ===============================================
-  {{site.disqus.shortname}}
-
   {% if site.disqus.shortname %}
     {% include disqus_comments.html %}
   {% endif %}
