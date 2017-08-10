@@ -1,0 +1,138 @@
+---
+title: 高程之最佳实践
+layout: default
+date:   2017-08-20 21:05:59 +0800
+categories: jekyll update
+category: js
+---
+[toc]
+## 1、可维护性
+- 可理解性、
+- 直观性、
+- 可适应性、
+- 可扩展性、
+- 可调式性
+
+### 1.1 代码约定：
+#### 1. 可读性：
+一般来说和代码格式有关系
+需要添加注释的地方：
+- 函数和方法：每个函数或者是方法都应该包含一个注释，描述其目的和用于完成任务所有可能使用的算法，参数代表什么以及函数是否有返回值
+- 大段代码：用于完成单个任务的多行代码应该在前边放一个描述任务的注释
+- 复杂的算法：如果使用一种独特的方式解决莫个问题，要注意注释中解释你是如何做的
+- Hack : 
+
+#### 2 变量和函数命名：
+- 变量名为名词：car person 
+- 函数名以动词开头： getName 返回boolean的函数以is开头
+- 变量函数都要合乎逻辑，不要担心长度
+
+#### 3 变量类型透明
+第一种方式是：初始化；
+var found = false;
+第二种方法是匈牙利标记发来指定变量类型。匈牙利在变量名之前加一个或多个字符来表示数据类型。
+var bFound;//boolean
+var iCount;//int 
+第三种 类型注释：
+var found /*:Boolean*/ = false;
+
+###  1.2 松散耦合
+只要某个部分的代码过于依赖另一个部分，代码就是耦合过紧，难于维护
+> 对象直接引用另一个对象，并且当修改其中一个的同时，需要修改另外一个，紧密的耦合的软件难于维护需要经常重写
+
+1、解耦html/javascript
+分开来写
+2、解耦css/javascript
+js改变class而不改变style
+3、解耦应用逻辑/事件处理程序
+
+以下是一些混合在一起的方法
+``` javascript
+function handleKeyPress(event) {
+    event = EventUtil.getEvent(event);
+    if(event.keyCode ==13){
+        var target = EventUtil.getTarget(event);
+        var value = 5*parseFloat(target.value);
+        if(value>10){
+            document.getElementById("error-msg").style.display = "block";
+        }
+    }
+}
+```
+然后把业务和事件拆分开看看
+
+
+``` javascript
+
+function handleKeyPress(event) {
+    event = EventUtil.getEvent(event);
+    if(event.keyCode ==13){
+        var target = EventUtil.getTarget(event);
+        validateValue(target.value)
+    }
+}
+function validateValue(value) {
+    value = 5*value;
+    if(value>10){
+        document.getElementById("error-msg").style.display = "block";
+    }
+}
+```
+以下是松散耦合的原则：
+- event对象不当成参数传
+- 任何可以在因用户层面的动作都应该可以在不执行任何时间处理程序的情况下进行
+- 任何事件处理程序都应该处理事件，然后将处理转交给应用逻辑
+
+### 1.3 实战：
+1、尊重对象所拥有权
+2、避免全局量
+3、避免与null进行比较，如果遇到一个与null比较的代码，尝试一下的技术：
+	如果值应该为一个引用类型，用instanceof
+	如果值应该是一个基本类型，用typeof检测其类型
+	如果是希望对象包含摸个特定的方法名，typeo操作符确保指定名字存在于对象上
+	
+4、使用常量
+	将数据和使用它的逻辑进行分离，
+	1、重复值 任何再多出用到的值，都应该抽取为一个常量。
+	2、用户界面字符串--任何用于显示给用户的字符串，都硬掰抽取出来以方便国际化
+	3、URLs-- 资源位置容易变，所以需要公共地方存放
+	4、任意可能会改变的值
+## 2、性能
+### 2.1 注意作用域
+只要能减少作用域链上消耗的时间，就能增加脚本的整体性能
+1、避免全局查找：比如频繁的调用document
+2、避免with语句，with会创建自己的作用域。从而增加了其中执行的代码的作用域链的长度。
+### 2.2 选择正确的方法:
+
+1、 避免不必要的属性查找 
+>注意：
+	 数组的复杂度是O(1)而对象的空间复杂度是O（n）;
+	所以一旦多次遇到对象的属性，应该将他们存放在局部变量中。
+	尽可能多的使用局部变量将睡醒查找替换为值查找
+
+2、优化迭代
+1. for循环从大到小
+2. 简化终止条件
+3. 简化循环体
+4. 使用后测试循环，for while是前测试循环do-while是后测试循环，避免了终止的计算
+
+3、展开循环
+循环次数确定时候，消除循环，多次函数调用，往往更快，
+4、避免出现双重解释
+eval("alert('')");
+new Function();
+setTimeOut("",300);	 
+5、性能的其他注意项：
+原生的方法比较快：Math.各种方法比手写的算法快，因为js默认的方法是c/c++直接编译的
+switch语句比ifelse快
+位运算比任何布尔运算或者算术运算快
+
+## 2.3最小化语句数：
+1、多个变量申明，
+var a=1,b=2,c=3这种
+2、插入迭代值
+
+一个语句完成两个语句的事情时候，用i++嵌套到语句中
+3、使用数组和对象字面量
+## 2.4优化DOM交互
+最小化现场更新，使用innerHTML，使用时间代理，注意HTMLCollection的使用
