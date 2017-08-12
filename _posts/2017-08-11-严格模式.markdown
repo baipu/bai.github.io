@@ -1,0 +1,101 @@
+---
+title: 严格模式
+layout: default
+date:   2017-08-12 21:05:59 +0800
+categories: test
+category: js
+---
+---
+title: 严格模式
+date:  2017-8-12 
+tags: 新建,模板,小书匠
+grammar_cjkRuby: true
+---
+
+## 1、选择使用
+在函数中添加"use strict";来确定使用严格模式
+## 2、变量
+创建变量有一定的显字
+1、不能意外的创建全局变量
+
+``` javascript
+eg：message = "hello"
+```
+前边必须有var
+
+2、不能对变量di调用delete操作符，非严格会操作失败，但是不会拋异常
+3、变量名要靠谱，不能是imlements、interface、let、package、private、protected、public、static、yield作为变量名
+## 3、对象
+1、给只读属性赋值会抛出TypeError
+2、对不可匹配的属性使用delete
+3、对不可扩展的属性添加属性
+4、属性名必须唯一
+5、
+## 4、函数：
+1、
+严格模式要求命名的函数的参数必须唯一：
+
+``` javascript
+function(num,num){}
+```
+非严格模式下不会错，但是严格模式会抛异常
+
+
+2、非严格模式下，修改命名参数的值arguments的值也会改变，但是严格模式下，这两个值完全独立
+
+``` javascript
+test("Hi")
+function test(value){
+    "use strict";
+    value = "ro";
+    alert(value);//ro
+    alert(arguments[0])//Hi
+}
+```
+3、淘汰了arguments.callee和arguments.caller非严格模式下这两个属性一个引用函数本身，一个引用调用函数一个调用函数。但是在严格模式下，访问会抛出TypeError
+4、函数名不能是implements interface let package private protected public static yield
+5、脚本的顶级和在函数内部声明函数，也就是说，在if语句中，声明函数会导致语法错误
+
+``` javascript
+if(true){
+    function dosomething () {
+        
+    }
+}
+```
+## eval()
+他在包含上下文中不再创建变量或函数
+
+``` javascript
+function doSomething(){
+    eval("var a =10");
+    alert(a);//严格模式下会报错
+
+    var resu = eval("var x=10,y=11;x+y");
+    alert(resu);//21//这个没有问题了
+}
+```
+## eval与arguments
+严格模式禁止使用eval arguments作为标识，不允许读写他们的值
+
+``` javascript
+var eval = 10;
+var arguments = "123sdf";
+```
+## 抑制this
+非严格模式下，使用函数的apply()或call的方法时候，null或undefined值会被转换为全局对象，严格模式下，函数的this值始终是指定的值，无论指定的是什么值
+
+``` javascript
+var color = "red";
+function displayColor(){
+    "use strict";
+    alert(color);
+}
+displayColor.call(null);
+```
+严格模式下会报错，
+
+## 其他变化
+严格模式下，使用width会语法错误
+去掉了八进制的字面变量，0开头的八进制字面变量成为了无效语法
+
