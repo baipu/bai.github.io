@@ -1,0 +1,150 @@
+---
+title: angular 
+tags: 新建,模板,小书匠
+grammar_cjkRuby: true
+---
+[toc]
+代码链接：
+http://git.oschina.net/mumu-osc/learn-component
+
+package.json里边添加
+1、添加bootstrap:
+2、font-awesome
+ 
+ 
+ 删除模块前缀：.angular-cli.json   prefix
+ 
+ 
+ ## 2、 父子之间的通讯
+
+### 1、父亲给儿子赋值
+``` html 
+ <!--父组件-->
+ <child #child (follow)="doSomething()" panelTitle="设置子组件标题"></child>
+ <!-- panelTitle="设置子组件标题"是给子逐渐传值-->
+ 
+<!--子组件--> 
+<div class="panel-heading">{{panelTitle}}</div>
+```
+子组件的ts
+
+``` typescript
+import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
+。。。
+。。。
+
+private _panelTitle:string="我是子组件";//定义子组件
+  //子组件接收值
+  @Input()
+  set panelTitle(panelTitle:string){
+    this._panelTitle="【"+panelTitle+"】";
+  }
+  
+  get panelTitle():string{
+    return this.__panelTitle;
+  }
+```
+> 注意：子html的{{panelTitle}}取值不是_panelTitle，而是 get panelTitle（）返回的值
+
+### 2 儿子给父亲传值
+通过派发事件的方式进行值传递
+#### 1、儿子直接传值给父组件
+``` typescript
+//子组件定义一个事件
+@Output()
+  public follow=new EventEmitter<string>();
+//定义方法
+	public emitAnEvent():void{
+    this.follow.emit("follow");
+  }
+
+```
+
+```html
+<!--子组件中处罚发送事件的机制-->
+<button (click)="emitAnEvent()" class="btn btn-success">触发一个事件</button>
+<!--父组件就像监听原生事件一样监听，进行处理，接受到follow事件，然后开始响应-->
+   <child #child (follow)="doSomething()" panelTitle="设置子组件标题"></child>
+```
+
+```typescript
+public doSomething():void{
+    alert("收到了子组件的自定义事件！");
+  }
+```
+
+#### 2、父组件调用子组件的方法（模板内的局部变量）
+
+``` html
+ <child #child (follow)="doSomething()" panelTitle="设置子组件标题"></child>
+ <!--上边的这句话绑定了子组件对象，也就是child,下边的时候就能直接调用子组件的公共的方法了-->
+ <button (click)="child.childFn()" class="btn btn-success">调用子组件方法</button>
+```
+#### 3、父组件调用子组件的方法（模板内的局部变量）
+为了在class中调用子组件实例，可以用@viewchild
+
+``` typescript
+//1、导入
+import { Component, OnInit, Input, Output, EventEmitter, AfterViewInit, ViewChild } from '@angular/core';
+//2、使用
+ @ViewChild(ChildComponent)//括号里是子组件的className
+  private childComponent: ChildComponent;
+  //这个是初始化结束后，直接嗲用子组件的childFn方法
+  ngAfterViewInit() {
+    //this.childComponent.childFn();
+  }
+```
+## 2 兄弟传值 service传值
+这里先把service摆出来：
+定义了一个
+``` typescript
+@Injectable()
+export class EventBusService {
+  public eventBus:Subject<string> = new Subject<string>();
+
+  constructor() { }
+ }  
+```
+发送值的component:
+构造函数引入，然后定义一个方法，调用时候发送
+``` typescript
+constructor(public eventBusService:EventBusService) { }
+  public triggerEventBus():void{
+    this.eventBusService.eventBus.next("第一个组件触发的事件");
+  }
+```
+接受值的componten:
+同样，构造函数中注入，然后，进行初始化的时候，订阅这个事件，上一个事件一有触发，然后就能收听到
+``` typescript
+	constructor(public eventBusService:EventBusService) {
+  	}
+
+  ngOnInit() {
+    this.eventBusService.eventBus.subscribe((value)=>{
+      this.events.push(value+"-"+new Date());
+    });
+  }
+```
+
+
+
+
+## localstorage
+写的：
+
+``` typescript
+  public writeData():void{
+    window.localStorage.setItem("json",JSON.stringify({name:'大漠穷秋',age:18}));
+  }
+```
+读取：
+ 
+
+``` typescript
+public readData():void{
+    var json=window.localStorage.getItem("json");
+    var obj=JSON.parse(json);
+    console.log(obj.name);
+    console.log(obj.age);
+  }
+```

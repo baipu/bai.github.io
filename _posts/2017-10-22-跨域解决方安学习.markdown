@@ -1,0 +1,544 @@
+---
+title: 2017-10-22 前端跨域解决方案
+tags: javascript 数组
+grammar_cjkRuby: true
+---
+
+## 什么是跨域
+一个域下的文档或脚本试图去请求另一个域下的资源，这里的跨域是广义的
+
+资源跳转：重定向，a连接 表单提交
+资源嵌入：link script img frame background:url() @font-face()
+脚本请求: ajax dom js对象的跨域操作
+
+
+什么叫同源？
+协议域名端口相同，哪怕ip相同但是域名不同也不是同源
+限制以下几种行为：
+cookie localstorage indexDb无法读取
+DOM js对象无法获取
+ajax请求不能发送
+## 解决方案：
+1. 通过jsonp跨域
+2. document.domain +iframe 跨域
+3. location.hash + iframe
+4. window.name+iframe
+5. postMessage跨域
+6. 跨域资源共享（CORS）
+7. nginx代理跨域
+8. nodejs中间件代理跨域
+9. WebSocket协议跨域
+
+
+
+### 一、通过jsonp跨域
+
+为了减轻web服务器的负载，我们把js css img等静态资源分离到另一台独立域名的服务器上，html页面通过相应的标签从不同的域名下加载静态资源被浏览器允许，我们可以动态的创建script再请求一个带参网址是子安跨域通信
+
+缺点：只有get方式
+
+1、原生实现：
+
+``` javascript
+
+var script = document.createElement("script");
+script.type = "text/javascript";
+script.src  = "https://www.domain2.com:9090/login?user=adming&callback=onback";
+document.head.appendChild(script);
+//回调函数，家挂
+function onBack(res){
+    alert(JSON.stringify(res));
+}
+```
+这时候定义了全局的函数onBack回来后会自动调用
+onBack({test:"aa"})
+2、jquery ajax ：
+
+``` javasctipt
+jQuery
+$.ajax({
+    url:"http://www.domain.com:8080/login",
+    type:"get",
+    dataType:"jsonp",
+    jsonpCallback:"onback",
+    data:{}
+
+})
+
+```
+3、vue的用法
+
+``` javascript
+vue
+this.$http.jsonp("http://www.domain.com:8080/login",{
+    param:{},
+    jsonp:"onBack"
+}).then((res)=>{
+    console.log(res);
+})
+```
+4.nodejs的用法
+
+``` javascript
+5.nodejs
+var querystring = require("querystring");
+var http = require("http");
+var server  = http.createServe();
+server.on("request",function(req,res){
+    var params = qs.parse(req.url.split("?")[1]);
+    var fn = param.callback;
+
+    res.write(fn+"("+JSON.stringify(params)+")")
+    res.end();
+});
+serve.listen("8080");
+console.log("server is runing at port 8080...");
+```
+
+
+
+
+### 二、 document.domain +iframe 跨域
+> 主域相同
+
+原理：两个页面都通过js强制设置document，domain为基础主域，就实现了同域
+
+1、父窗口：（http://www.domain.com/a,html）
+
+``` html
+<iframe id="iframe" src="http://www.child.domain.com/b,html"></iframe>
+<script>
+document.domain = "dimain.com"
+var user = "admin"
+</script>
+```
+2、子窗口：（http://child.domain.com/b,html）
+
+``` html
+<script>	
+document.domain = "dimain.com"
+console.log("get js data from parent ====>"+window.parent.user)
+</script>
+```
+### 三、 location.hash + iframe
+原理：a欲与b跨域相互通信，通过中间页面c来实现，不同域之间利用iframe的location.hash传值，相同域之间直接js访问来通信
+
+
+A的a.html  =>B的b.html -》A的c.html
+1.a.html(http://www.domain1.com/a,html)
+
+``` html
+<iframe id="iframe" src="http://www.child.domain.com/b,html"></iframe>
+<script>
+var iframe = document.getElementById("iframe");
+//向b传hash值
+	setTimeout(function(){
+	    iframe.src = iframe.src+"#user =admin";
+	},1000)
+	//开放给c>html的回调方法
+	function onCallback(res){
+	    alert("data from c.html====>"+res);
+	}
+</script>
+```
+2.b.html(http://www.domain2.com/b,html)
+
+``` html
+<iframe id="iframe" src="http://www.domain1.com/c.html"></iframe>
+<script>
+	var iframe = document.getElementById("iframe");
+	window.onhashchange = functin(){
+	    iframe.src= iframe.src +location.hash;
+	}
+</script>
+```
+
+3.c.html(http://www.domain1.com/c.html)
+
+``` javascript
+<script>
+	window.onhashchange = functin(){
+	   window.parent.parent.oncallback("hello"+location.hash.replace("#user=","" ))
+	}
+</script>
+```
+
+### 四、 window.name+iframe
+window.name的属性的独特之处：name值在不同的页面（甚至不同的域名）加载后依旧存在，并且可以支持非常长的name值
+
+a.html http://www.domian1.com/a.html
+``` javascript
+var proxy = function(url,callback){
+    var state = 0;
+    var ifram - document.createElement("iframe");
+    ifram.src = url;
+    ifram.onload = function () {
+        if(state===1){
+            callback(iframe.contentWindow.name);
+            destroyFrame();
+        }else if(state === 0){
+            ifram.contentWindow.location = "http://www.domain1.com/proxy.html";
+            statte =1;
+        }
+    }
+
+    document.body.append(ifram)
+}
+proxy("http://www.domain2.com/b.html".function(data){
+    alert(data);
+})
+```
+proxy.html:http://www.domain1.com/proxy
+中间代理页面，和a.html相同就好了，内容为空就行
+
+b.html http://www.domain2.com/b.html
+
+``` html
+<script>
+	window.name = "this is domain2 data"
+</script>
+```
+### 五、 postMessage跨域
+postMessage 是ihtml5XMLHttpRequeset level 2 中的API，且是为数不多可以跨越操作的window属性之一，它可用于解决一下方面的问题:
+
+页面和其他的打开的新的窗口的数据传递
+多窗口之间消息传递
+页面与嵌套的iframe消息传递
+上面三个场景的跨域数据传递
+
+用法：postMessage(data,origin)
+data:JSON.stringify()序列化
+origin ：协议+主机+端口号
+
+html1 http://www.domain1.com/a.html
+``` html  
+<iframe id="iframe" src="http://www.domain2.com/b.html"></iframe>
+
+var iframe = document.getElementById("iframe");
+
+ifram.onload = function () {
+    var data = {
+        name:"aym"
+    }
+    //向domain跨域传输数据
+    iframe.contentWindow.postMessage(JSON.stringfy(data),"http://www.domain2.com");
+}
+window.addEventListener("message", function (e) {
+    alert("data from domain2 ---->"+ e.data);
+},false);
+```
+b.html http://www.domain2.com/b.html
+
+``` html
+
+window.addEventListener("message",function(e){
+    alert("data from domain1");
+    var data  = JSON.parse(e.data);
+    if(data){
+        data.number =14;
+        window.parent.postMessage(JSON.stringify(data),"http://www.domain1.com")
+    }
+
+},false)
+```
+
+
+### 六、 跨域资源共享（CORS）
+普通的跨域请求：只要服务端设置access-control allow origin既可，前端无需设置
+带cookie请求：前后端都要设置字段，另外注意：所需cookie为跨域请求接口所在域的cookie而非当前页
+目前所有浏览器都支持该功能cors也成为主流的跨域解决方案
+
+1、前端设置：
+
+``` javascript
+//前端设置哎是不是带cookie
+xhr.withCredentials = true;
+
+//show:
+//前端设置哎是不是带cookie
+xhr.withCredentials = true;
+
+var xhr = new XMLHttpRequest();
+xhr.withCredentials = true;
+xhr.open("post","http://www.domain2.com:8080/login",true);
+xhr.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+xhr.send("user=damin");
+xhr.onreadystatechange = function () {
+    if(xhr.readyState==4&&xhr.status == 200){
+        alert(xhr.responseText)
+    }
+}
+
+//jQuery
+$.ajax(
+    xhrFilds:{
+    withcredentials:true//前端设置是否带有cookie
+}
+)
+//Vue
+vue.http.options.credentials = true;
+```
+2、服务端的设置：
+如果服务端设置成功了，前端不会出现跨域的异常情况
+java
+
+
+``` java
+导包
+//import javax.servelet.http.HttpServletResponse
+//接口参数中定义了HttpServletResponse response
+
+response.setHeader("Access-Control-Allow-Orign","http://www.domain1.com");//如果有端口需要写全
+response.setHeader("Access-Control-Allow-Credentials","true");
+```
+
+
+node的用法：
+
+``` javascript
+var http = require("http");
+var qs= require("quertstring");
+var server  = http.createServe();
+server.on("request",function(req,res){
+   var postData = ""
+    req.addListener("data",function(chunk){
+        postData+=chunk;
+    })
+    req.addListener("end",function(){
+        postData= qs.parse(postData);
+        res.writeHead(200,{
+            "Access-Control-Allow-Orign":"http://www.domain1.com",
+            "Access-Control-Allow-Credentials":"true",
+            "Set-Cookie":"l=a1123123123;Path = /:Domain = www.domain2.commLHttpOnly"
+        });
+        res.write(JSON.stringify(postData));
+        res.end()
+
+    })
+});
+serve.listen("8080");
+console.log("server is runing at port 8080...");
+```
+
+
+
+### 七、 nginx代理跨域
+1、解决iconfont跨域
+浏览器跨域访问js css img 等常规静态资源悲痛元策略许可，但是iconfont字体文件例外，这时候在nginx添加如下的配置就好了
+
+``` config
+location/{
+add_header Access-COntrol-Allow-origin*;
+}
+```
+2、反向代理接口跨域
+跨域原理：同源策略是浏览器的安全策略，不是http协议的一部分，服务器端调用http接口只是使用了http协议不会执行js脚本，不需要同源策略，也不存在跨域问题
+
+实现思路：
+通过nginx配置一个代理服务器，域名domain1相同，端口不同，当成条班级，反向代理访问domain2接口，且可以顺便修改cookie中的domain信息方便当前域cookie写入，实现跨域登陆
+
+配置文件
+
+```conf
+   server {
+        listen       81;
+        server_name  www.domain1.com;
+        access_log  logs/host.access.log main;#这个是啥？不知道
+
+	#不使用缓存配置 expires 0s;
+        location / {
+           # root   ../gateWay/;
+           proxy_pass http://www.domain2.com:8080;
+           proxy_cookie_domain  www.domain2.com www.dmain.com;#修改cookie里的域名
+           index  index.html index.html;
+	   #当用webpack-dev-server等中间代理接口访问nignx时候，这个时候没有浏览器参与，所以没有同源限制，下面的跨域配置可不启用
+	   add-header Access-control-Allow-Origin http://www.domain1.com ;#当前只有跨域不带cookie的时候可以为*
+	   add_header Aeecss-Control-Allow-Credentials true;
+        }
+  }
+```
+
+前端代码的写法：
+
+``` javascript
+var xhr = new XMLHttpRequest();
+xhr.withCredentials = true;
+xhr.open("post","http://www.domain1.com:81/login",true);//访问ajax
+xhr.send():
+```
+后台node配合
+
+``` javascript
+var http = require("http");
+var qs= require("quertstring");
+var server  = http.createServe();
+server.on("request",function(req,res){
+   var param = qs.parse(postData);
+     res.writeHead(200,{
+            "Set-Cookie":"l=a1123123123;Path = /:Domain = www.domain2.comm;HttpOnly"
+        });
+     res.write(JSON.stringify(postData));
+     res.end()
+});
+serve.listen("8080");
+console.log("server is runing at port 8080...");
+```
+### 八、 nodejs中间件代理跨域
+类似于ngninx都是通过一个中间服务器实现转发，懒得看了，待会儿复制
+
+
+node中间件实现跨域代理，原理大致与nginx相同，都是通过启一个代理服务器，实现数据的转发。
+
+1、 非vue框架的跨域（2次跨域）
+
+利用node + express + http-proxy-middleware搭建一个proxy服务器。
+
+1.）前端代码示例：
+
+``` javascript
+var xhr = new XMLHttpRequest();
+ 
+// 前端开关：浏览器是否读写cookie
+xhr.withCredentials = true;
+ 
+// 访问http-proxy-middleware代理服务器
+xhr.open('get', 'http://www.domain1.com:3000/login?user=admin', true);
+xhr.send();
+```
+
+
+2.）中间件服务器：
+
+``` javascript
+var express = require('express');
+var proxy = require('http-proxy-middleware');
+var app = express();
+ 
+app.use('/', proxy({
+    // 代理跨域目标接口
+    target: 'http://www.domain2.com:8080',
+    changeOrigin: true,
+ 
+    // 修改响应头信息，实现跨域并允许带cookie
+    onProxyRes: function(proxyRes, req, res) {
+        res.header('Access-Control-Allow-Origin', 'http://www.domain1.com');
+        res.header('Access-Control-Allow-Credentials', 'true');
+    },
+ 
+    // 修改响应信息中的cookie域名
+    cookieDomainRewrite: 'www.domain1.com'  // 可以为false，表示不修改
+}));
+ 
+app.listen(3000);
+console.log('Proxy server is listen at port 3000...');
+```
+
+
+3.）Nodejs后台同（六：nginx）
+
+2、 vue框架的跨域（1次跨域）
+
+利用node + webpack + webpack-dev-server代理接口跨域。在开发环境下，由于vue渲染服务和接口代理服务都是webpack-dev-server同一个，所以页面与代理接口之间不再跨域，无须设置headers跨域信息了。
+
+webpack.config.js部分配置：
+
+``` javascript
+module.exports = {
+    entry: {},
+    module: {},
+    ...
+    devServer: {
+        historyApiFallback: true,
+        proxy: [{
+            context: '/login',
+            target: 'http://www.domain2.com:8080',  // 代理跨域目标接口
+            changeOrigin: true,
+            cookieDomainRewrite: 'www.domain1.com'  // 可以为false，表示不修改
+        }],
+        noInfo: true
+    }
+}
+```
+
+
+### 九、 WebSocket协议跨域
+webSocket protocol是html5的一种新协议，实现了浏览器与服务器全双工通信，同时允许跨域通讯模式server push一种良好的实现
+
+原生的websockey api使用起来不放哪gia你，我们使用socket.io分装了webSocket接口简单灵活向下兼容
+前端代码
+
+``` html
+<div> user input: <input type="text"></div>
+<script src="./sockey.io.js"></script>
+<script>
+	var socket= io("http://www.domain2.com:8080");
+//连接成功处理
+socket.on("connent",function(){
+    //监听服务端的信息
+    socket.on("message",function(msg){
+        console.log("data from server ----->"+msg);
+    });
+    //监听到关闭
+    socket.on("disconnect",function(){
+        console.log("server sockt has closed");
+    })
+})
+
+document.getElementsByTagName("input")[0].onblur = function () {
+    socket.send(this.value);
+}
+</script>
+
+```
+Nodejs socket后台
+
+```javascript
+
+var http = require("http");
+var socket= require("socket.io");
+var server  = http.createServe(function (req,res) {
+    res.writeHead(200,{
+        "Content-type":"text/html"
+    });
+    res.end()
+});
+serve.listen("8080");
+console.log("server is runing at port 8080...");
+
+
+//监听socket连接
+
+socket.linsten(server).on("connent",function(client){
+    //监听服务端的信息
+    client.on("message",function(msg){
+        console.log("data from client ----->"+msg);
+        client.send("htllo :"+msg);
+    });
+    //监听到关闭
+    client.on("disconnect",function(){
+        console.log("client sockt has closed");
+    })
+})
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
