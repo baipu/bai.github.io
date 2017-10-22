@@ -1,7 +1,9 @@
 ---
 title: 2017-10-22 前端跨域解决方案
-tags: javascript 数组
-grammar_cjkRuby: true
+layout: default
+date:   2017-10-22 21:05:59 +0800
+categories: test
+category: js
 ---
 
 ## 什么是跨域
